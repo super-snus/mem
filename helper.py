@@ -73,7 +73,7 @@ async def websocket_handler(request):
     return ws
 
 # 3️⃣ Telegram Bot
-TOKEN = "ВАШ_BOT_TOKEN"
+TOKEN = "8248310335:AAECHoL6wOvpNxJ2DDsdmGHRTeNjOQybU3s"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Кнопка открытия Web App
