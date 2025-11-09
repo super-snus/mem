@@ -1,58 +1,36 @@
-import socket
-import time
-import requests
-import telebot
+# server.py
+import asyncio
+import websockets
+import shlex
 
-BOT_TOKEN = "8248310335:AAECHoL6wOvpNxJ2DDsdmGHRTeNjOQybU3s"
-
-bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
-
-def get_public_ip(timeout=5):
-    try:
-        resp = requests.get("https://api.ipify.org?format=text", timeout=timeout)
-        resp.raise_for_status()
-        return resp.text.strip()
-    except Exception as e:
-        return f"Ошибка получения внешнего IP: {e}"
-
-def get_local_ip():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
-        return local_ip
-    except Exception as e:
-        return f"Ошибка получения локального IP: {e}"
-
-@bot.message_handler(func=lambda message: True)
-def handle_all_messages(message):
-    chat_id = message.chat.id
-    public_ip = get_public_ip()
-    local_ip = get_local_ip()
-    text = (
-        "IP отчёт:\n"
-        f"Внешний (public) IP: {public_ip}\n"
-        f"Локальный (local) IP: {local_ip}"
+async def terminal_handler(websocket, path):
+    # Запускаем bash-процесс
+    process = await asyncio.create_subprocess_exec(
+        'bash',
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT
     )
-    try:
-        bot.send_message(chat_id, text)
-    except Exception as e:
-        # пробуем ещё раз при ошибке
-        try:
-            time.sleep(1)
-            bot.send_message(chat_id, f"Ошибка при отправке сообщения: {e}")
-        except Exception:
-            pass
 
-def main():
-    # Надёжный цикл polling с авто-reconnect
-    while True:
-        try:
-            bot.polling(none_stop=True)
-        except Exception as e:
-            print("Polling упал, повторный запуск через 5 сек. Ошибка:", e)
-            time.sleep(5)
+    # Чтение stdout и отправка в WebSocket
+    async def read_stdout():
+        while True:
+            line = await process.stdout.readline()
+            if line:
+                await websocket.send(line.decode())
+            else:
+                break
 
-if __name__ == "__main__":
-    main()
+    asyncio.create_task(read_stdout())
+
+    # Получение команд от клиента и отправка в bash
+    async for message in websocket:
+        process.stdin.write(message.encode() + b'\n')
+        await process.stdin.drain()
+
+async def main():
+    print("Terminal WebSocket running on ws://0.0.0.0:8765")
+    async with websockets.serve(terminal_handler, '0.0.0.0', 8765):
+        await asyncio.Future()  # run forever
+
+asyncio.run(main())
