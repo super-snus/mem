@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Telegram Web Terminal</title>
+<style>
+  body { background: #1e1e1e; color: #c5c8c6; font-family: monospace; margin:0; }
+  #terminal { padding: 10px; height: 95vh; overflow-y: auto; white-space: pre-wrap; }
+  #input { width: 100%; border: none; background: #2e2e2e; color: #c5c8c6; padding: 8px; font-family: monospace; }
+</style>
+</head>
+<body>
+<div id="terminal"></div>
+<input id="input" placeholder="Type command..." autofocus />
+
+<script>
+const terminalDiv = document.getElementById("terminal");
+const input = document.getElementById("input");
+
+// Подключаемся к серверу WebSocket (замени на свой IP)
+const ws = new WebSocket("ws://YOUR_SERVER_IP:8765");
+
+ws.onmessage = (event) => {
+    terminalDiv.innerText += event.data + "\n";
+    terminalDiv.scrollTop = terminalDiv.scrollHeight;
+};
+
+input.addEventListener("keydown", (e) => {
+    if(e.key === "Enter") {
+        ws.send(input.value);
+        input.value = "";
+    }
+});
+</script>
+</body>
+</html>
